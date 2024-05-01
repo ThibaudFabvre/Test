@@ -36,3 +36,23 @@
     transform: rotate(360deg);
   }
 }
+
+
+/** Technical test part */
+
+
+/*give spins their basic style*/
+.spin {
+  color: red;
+  text-decoration: none;
+}
+
+/*when p is hoverd, give all spins the underline*/
+p:hover .spin {
+  text-decoration: underline;
+}
+
+/*when p is hovered, give all spins that are hovered no underline*/
+p .spin:hover {
+  text-decoration: none;
+}
