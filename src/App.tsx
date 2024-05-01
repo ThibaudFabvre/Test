@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import { LexicalComposer} from '@lexical/react/LexicalComposer';
 import {PlainTextPlugin} from "@lexical/react/LexicalPlainTextPlugin";
 import {ContentEditable} from '@lexical/react/LexicalContentEditable';
@@ -6,20 +6,17 @@ import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import './App.css';
 import {TreeView} from '@lexical/react/LexicalTreeView';
-import { $insertNodes, EditorConfig, LexicalCommand, LexicalNode, NodeKey, SerializedTextNode, TextNode, createCommand } from 'lexical';
+import { $insertNodes, EditorConfig, LexicalNode, NodeKey, SerializedTextNode, TextNode, createCommand } from 'lexical';
 import {
     $applyNodeReplacement,
   } from 'lexical';
 import { addClassNamesToElement } from '@lexical/utils';
 
-export const INSERT_SPIN_COMMAND: LexicalCommand<void> =
-  createCommand('INSERT_SPIN_COMMAND');
-
 export function $createSpinNode(text = ''): SpinNode {
     return $applyNodeReplacement(new SpinNode(text));
 }
 
-export const SPIN_REGEX = new RegExp('\{\{([^|{}]+)\|([^|{}]+)\}\}');
+export const SPIN_REGEX = new RegExp('/\{\{([^|{}]+)\|([^|{}]+)\}\}|\{\{([^|{}]+)\|\}\}|\{\{\|\}\}|\{\{\|([^|{}]+)\}\}/gm');
 
 export function isSpin(text: string){
   return SPIN_REGEX.test(text);
@@ -47,20 +44,46 @@ export class SpinNode extends TextNode {
 
   createDOM(config: EditorConfig): HTMLElement {
 
-    // const tooltip = document.createElement('div');
     const spinContainer = document.createElement('span');
     const spin = super.createDOM(config)
-    // spin.onclick = () => {
-    //   if(tooltip.classList.contains("visible")){
-    //     tooltip.classList.remove("visible")
-    //   } else {
-    //     tooltip.classList.add("visible")
-    //   }
-      
-    // };
+    const tooltip = document.createElement('div');
+    tooltip.style.position = 'absolute';
+    tooltip.textContent = 'COOL';
+    tooltip.style.backgroundColor =  "black";
+    tooltip.style.color = "white";
+    tooltip.style.padding = '5px';
+    tooltip.style.borderRadius = '5px';
+    tooltip.style.zIndex = '1000';
 
-    // tooltip.appendChild(spin);
-    // addClassNamesToElement(tooltip, config.theme.tooltip)
+    tooltip.style.visibility = "visible";
+
+    tooltip.onclick = (event) => {
+      // Prevent click event bubbling to spin element
+      event.stopPropagation();
+  };
+
+    spin.onclick = (event) => {
+      tooltip.style.visibility = 'visible';
+      const rect = spin.getBoundingClientRect();
+      tooltip.style.top = rect.top + 20 + window.pageYOffset + 'px';
+      tooltip.style.left = rect.left + window.pageXOffset + 'px';
+
+      // Append tooltip to document body
+      document.body.appendChild(tooltip);
+    }
+
+    document.body.addEventListener('click', (event : any) => {
+        const isClickInsideTooltip = tooltip.contains(event.target);
+        const isClickInsideSpin = spin.contains(event.target);
+        
+        if (!isClickInsideTooltip && !isClickInsideSpin) {
+          tooltip.style.visibility = 'hidden';
+        } else {
+          tooltip.style.visibility = 'visible';
+        }
+  });
+
+
     addClassNamesToElement(spinContainer, config.theme.spinContainer)
     addClassNamesToElement(spin, config.theme.spin);
     spinContainer.append(spin);
@@ -111,6 +134,7 @@ const matchSpin = (text:string) : any | null => {
 function SpinPlugin({ onChange }: { onChange: any }) {
   // Access the editor through the LexicalComposerContext
   const [editor] = useLexicalComposerContext();
+
   useEffect(() => {
     return editor.registerNodeTransform(TextNode, (node: TextNode )=> {
       const textContent = node.getTextContent();
@@ -187,6 +211,7 @@ function TreeViewPlugin(): JSX.Element {
 const App = () => {
 
     const [editorState, setEditorState] = useState();
+
     function onChange(editorState : any) {
       setEditorState(editorState);
     }
